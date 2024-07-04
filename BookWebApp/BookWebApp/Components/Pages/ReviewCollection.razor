@@ -1,0 +1,218 @@
+﻿@page "/reviewcollection"
+@using MudBlazor
+@using BookSystem;
+
+<PageTitle>Review Collection</PageTitle>
+
+@inject IJSRuntime JSRunTime
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h1">Review Collection</MudText>
+
+<MudForm Class="mt-8" @ref="form" @bind-Errors="errors">
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudCard Outlined="true">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h2">Book Details</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField Variant="Variant.Outlined" 
+                                  T="string" 
+                                  Label="ISBN" 
+                                  @bind-Value="@isbn"
+                                  Immediate="true"
+                                  Required
+                                  RequiredError="ISBN is required."/>
+                    <MudTextField Variant="Variant.Outlined" 
+                                  T="string" 
+                                  Label="Title"
+                                  @bind-Value="@title"
+                                  Immediate="true"
+                                  Required
+                                   RequiredError="Title is required." />
+                     <MudSelect T="string"
+                                Label="Author"
+                                Variant="Variant.Outlined"
+                                @bind-Value="@author"
+                                Immediate="true"
+                               Required
+                                RequiredError="Author is required.">
+                        @foreach (string value in authorList)
+                        {
+                            <MudSelectItem Value="value" />
+                        }
+                    </MudSelect>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudCard Outlined="true">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h2">Review</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField Variant="Variant.Outlined"
+                                  T="string"
+                                  Label="Reviewer"
+                                  @bind-Value="@reviewer"
+                                  Immediate="true" 
+                                  Required
+                                   RequiredError="Reviewer is required." />
+                     <MudSelect T="string"
+                                Label="Rating"
+                                Variant="Variant.Outlined"
+                                @bind-Value="@ratingType"
+                                Immediate="true"
+                               Required
+                                RequiredError="Author is required.">
+                        @* @foreach (string value in authorList)
+                        {
+                            <MudSelectItem Value="value" />
+                        } *@
+                    </MudSelect>
+                    <MudTextField Variant="Variant.Outlined"
+                                  T="string"
+                                  Label="Comment"
+                                  @bind-Value="@comment"
+                                  Immediate="true"
+                                  Required
+                                  Lines="5"
+                                  RequiredError="Comment is required." />
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12">
+            <MudPaper Class="d-flex flex-wrap justify-center" Elevation="0">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddReview">Add Review</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="ClearForm">Clear</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary">
+                     <MudNavLink Href="/reviewreport">
+                        View Report    
+                    </MudNavLink>
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudForm>
+<MudPaper Class="pt-4" Elevation="0">
+    @if(!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <MudText Typo="Typo.body2" Color="Color.Success">@successMessage</MudText>
+    }
+    @foreach(var error in errors)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Error">@error</MudText>
+    }
+    @foreach (var error in errorMessages)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Error">@error</MudText>
+    }
+</MudPaper>
+
+@code {
+    private List<Review> reviews = [];
+    private List<string> authorList = [];
+    private RatingType ratingTypes;
+    private string isbn = string.Empty;
+    private string title = string.Empty;
+    private string author = string.Empty;
+    private string reviewer = string.Empty;
+    private string comment = string.Empty;
+    private string ratingType;
+    private List<string> errorMessages= [];
+    private Review review = null;
+    private MudForm form = new();
+    private string[] errors = { };
+    private string successMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        LoadAuthors();
+
+        base.OnInitialized();
+    }
+
+    private void LoadAuthors()
+    {
+        string fileName = @"wwwroot/data/TestData.csv";
+        int lineCounter = 0;
+        string[] reviewData = { };
+        try
+        {
+            reviewData = File.ReadAllLines(fileName);
+            foreach (string line in reviewData)
+            {
+                lineCounter++;
+                reviews.Add(Review.Parse(line));
+            }
+
+            foreach (var item in reviews)
+            {
+                authorList.Add(item.Author);
+            }
+        }
+        catch (FormatException ex)
+        {
+            errorMessages.Add($"Format Error: {lineCounter}: {GetInnerException(ex).Message}");
+        }
+        catch (ArgumentNullException ex)
+        {
+            errorMessages.Add($"Null Error: {lineCounter}: {GetInnerException(ex).Message}");
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessages.Add($"Argument Error: {lineCounter}: {GetInnerException(ex).Message}");
+        }
+        catch (Exception ex)
+        {
+            errorMessages.Add($"Record Error: {lineCounter}: {GetInnerException(ex).Message}");
+        }
+    }
+
+    private void AddReview()
+    {
+        errorMessages.Clear();
+        form.Validate();
+        if(form.IsValid)
+        {
+            try
+            {
+                review = new Review(isbn, title, author, reviewer, (RatingType)Enum.Parse(typeof(RatingType), ratingType), comment);
+                string fileName = @"wwwroot/data/TestData.csv";
+                string line = $"{review.ToString()}\n";
+                File.AppendAllText(fileName, line);
+                successMessage = $"{isbn} {title} added successfully!";
+            }
+            catch (Exception ex)
+            {
+                errorMessages.Add(GetInnerException(ex).Message);
+            }
+        }
+    }
+
+    //MudBlazor Method using DialogService
+    private async void ClearForm()
+    {
+        bool? result = await DialogService.ShowMessageBox("Confirm Clear", "Clearing will lose any unsaved data. Are you sure you want to clear the form?", yesText: "Clear Form", cancelText: "No don't!", noText: "Really don't Clear!");
+
+        //Yes results = true, No result = false, Cancel result = null
+        if (result != null && result != false)
+        {
+            await form.ResetAsync();
+            errorMessages.Clear();
+            successMessage = string.Empty;
+        }
+    }
+
+    private Exception GetInnerException(Exception ex)
+    {
+        //drill down into your Exception until there are no more inner exceptions
+        //at this point you have the "real" error
+        while (ex.InnerException != null)
+            ex = ex.InnerException;
+        return ex;
+    }
+}
